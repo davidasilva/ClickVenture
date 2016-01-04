@@ -56,7 +56,9 @@ class Adventure:
             #creating list of edges
             for found_node in self.soup.findAll('div',attrs={'class':'clickventure-node  '}):#searching for node <div> tags, iterating through each of them
                 node_id = int(found_node.attrMap['data-node-id']) #getting the node id
-                paths = [path(item) for item in found_node.findAll('div',attrs={'class':'clickventure-node-link '})] #finding all the paths that start from this node
+                normal_paths = [path(item) for item in found_node.findAll('div',attrs={'class':'clickventure-node-link '})] #finding all the paths that start from this node
+                float_paths = [path(item) for item in found_node.findAll('div',attrs={'class':'clickventure-node-link clickventure-float'})]
+                paths=normal_paths+float_paths #combining the two types of paths into one thing
                 #print node_id
                 for found_path in paths: #adding an edge for each path
                     #print '\t {0}'.format(found_path.target_num)
@@ -101,33 +103,42 @@ class Adventure:
 
     class node:
         def __init__(self,num,soup):
+            '''NOTE: not actually being used in the graph code anymore. Deprecated.'''
             res = soup.find('div',attrs={'data-node-id':num})
-            self.paths = [path(item) for item in res.findAll('div',attrs={'class':'clickventure-node-link '})]
+            paths = [path(item) for item in res.findAll('div',attrs={'class':'clickventure-node-link '})]
+            float_paths = [path(item) for item in res.findAll('div',attrs={'class':'clickventure-node-link clickventure-float'})] #apparently a small number of the paths are given by 'clickventure-float' things. Need to include these or some edges disappear and you get disconnected components
+            self.paths=paths+float_paths #combining the two lists
             self.text = res.text
 
 ############################
 
 ##getting all adventure URLs
-articles=[] #list to put article URLs in
-for pageno in [1,2,3]:
-    list_URL = r'http://www.clickhole.com/features/clickventure/?page={0}'.format(pageno)
-    list_page=uopen(list_URL)
-    list_soup = BeautifulSoup(list_page)
+def get_articles():
+    '''collects article URLs from master article list on the Clickhole website.'''
+    articles=[] #list to put article URLs in
+    for pageno in [1,2,3]:
+        list_URL = r'http://www.clickhole.com/features/clickventure/?page={0}'.format(pageno)
+        list_page=uopen(list_URL)
+        list_soup = BeautifulSoup(list_page)
 
-    for article_soup in list_soup.findAll('article'):
-        link_tag = article_soup.findAll('a')[0] #finding the link tag within the HTML
-        article_url = r'http://clickhole.com' + link_tag.attrs[1][1] #getting the href component of the link attribute
-        articles.append(article_url) #adding URL to master list
+        for article_soup in list_soup.findAll('article'):
+            link_tag = article_soup.findAll('a')[0] #finding the link tag within the HTML
+            article_url = r'http://clickhole.com' + link_tag.attrs[1][1] #getting the href component of the link attribute
+            articles.append(article_url) #adding URL to master list
 
-print 'Found ' + str(len(articles)) + ' articles.'
+    print 'Found ' + str(len(articles)) + ' articles.'
+    return articles
 
 
 #making Adventure objects and generating/saving graphs. Make sure ../ClickVenture Results folder exists
-adventures=[] #list that will hold Adventure objects
-for article_url in articles:
-    try:
-        ClickVenture = Adventure(article_url)
-        adventures.append(ClickVenture)
-        ClickVenture.graph(save=True,alpha=0.7,node_color='seagreen',figsize=10,wrap_width=60)
-    except:
-        print 'Failed to process ' + article_url
+def get_adventures(articles,save=True,alpha=0.7,**kwargs):
+    '''takes list of article URLs, produces list of Adventure objects for each. Passes kwargs to Adventure.graph method'''
+    adventures=[] #list that will hold Adventure objects
+    for article_url in articles:
+        try:
+            ClickVenture = Adventure(article_url)
+            adventures.append(ClickVenture)
+            ClickVenture.graph(save=save,alpha=alpha,node_color='seagreen',figsize=10,wrap_width=60,**kwargs)
+        except:
+            print 'Failed to process ' + article_url
+    return adventures
