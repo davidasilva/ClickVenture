@@ -25,8 +25,8 @@ class Adventure:
 
         #get page title
         try:
-            titletag = self.soup.find('title')
-            self.title=titletag.text[0:-13]
+            titletag=self.soup.find('meta',attrs={'property':"og:title"})
+            self.title = titletag.attrMap['content']
         except:
             self.title='no title found'
 
