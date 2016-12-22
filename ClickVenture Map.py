@@ -5,6 +5,7 @@ import networkx as nx
 from matplotlib import pyplot as plt
 from textwrap import wrap
 
+
 class path:
     def __init__(self,souptag):
         self.text = souptag.text.encode('utf8')
@@ -23,8 +24,11 @@ class Adventure:
         self.G = None #will be replaced by graph later
 
         #get page title
-        title_tag=self.soup.find('div',attrs={'class':'share-buttons share-widget'})
-        self.title=title_tag.attrMap['data-share-title']
+        try:
+            titletag = self.soup.find('title')
+            self.title=titletag.text[0:-13]
+        except:
+            self.title='no title found'
 
     def graph(self,figsize=30,showPlot=False,save=False,save_folder=r'./ClickVenture Results/',wrap_width = 25,**kwargs):
         '''Creates a networkx graph object from the HTML data, and shows/saves the graph if desired.
@@ -48,6 +52,9 @@ class Adventure:
 
             #starting at mother node
             mother_node = self.soup.find('div',attrs={'class':'clickventure-node clickventure-start '})
+            if mother_node is None:  
+                mother_node = self.soup.find('div',attrs={'class':'clickventure-node clickventure-node-start '})
+                
             self.mother_id = int(mother_node.attrMap['data-node-id'])
             mother_paths = [path(item) for item in mother_node.findAll('div',attrs={'class':'clickventure-node-link '})] #finding all the paths that start from this node
             for initial_path in mother_paths:
@@ -65,6 +72,7 @@ class Adventure:
                     arrows.append((node_id,found_path.target_num))
 
             self.arrows=arrows
+            
             #creating networkx graph using the connections found above
             self.G=nx.DiGraph()
             self.G.add_edges_from(arrows)
@@ -75,12 +83,30 @@ class Adventure:
         #figuring out node sizes
         self.degrees=np.array(self.G.degree().values()) #number of edges for each node
         degree_max = float(max(self.degrees))
-        adjusted_node_size = 300*np.exp(3.5*self.degrees/degree_max) #adjusting node sizes so ones with more connections look a lot bigger
+        #adjusted_node_size = 300*np.exp(3.5*self.degrees/degree_max) #adjusting node sizes so ones with more connections look a lot bigger
 
         #graphing stuff
 
         #creating figure and drawing graph
         fig=plt.figure(figsize=(figsize,figsize))
+        #arranging graph
+        pos=nx.graphviz_layout(self.G)
+
+        nx.draw_networkx_edges(self.G,pos,
+                              edgelist = self.arrows)
+        
+        nx.draw_networkx_nodes(self.G,pos,
+                            nodelist=[self.mother_id],
+                             node_color='b',
+                             node_size = 1000,
+                              alpha=0.4)
+        
+#        nx.draw_networkx_nodes(self.G,pos,
+#                             nodelist=[node for node in self.G.nodes() if node != self.mother_id],
+#                             node_color='r',
+#                             node_size=100,
+#                              alpha=0.4)
+        
         nx.draw_graphviz(self.G,
                **kwargs)
 
@@ -116,7 +142,7 @@ class Adventure:
 def get_articles():
     '''collects article URLs from master article list on the Clickhole website.'''
     articles=[] #list to put article URLs in
-    for pageno in [1,2,3]:
+    for pageno in [1,2,3,4,5]:
         list_URL = r'http://www.clickhole.com/features/clickventure/?page={0}'.format(pageno)
         list_page=uopen(list_URL)
         list_soup = BeautifulSoup(list_page)
